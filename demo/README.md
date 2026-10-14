@@ -23,3 +23,12 @@ curl -s -X POST http://127.0.0.1:4100/querier.v1.QuerierService/LabelValues \
 
 This repo is a private sandbox for a talk. Open PRs here only, never against
 an upstream grafana repo.
+
+## Cursor Cloud Agents
+
+`.cursor/environment.json` sets this up for Cloud Agents with no Docker:
+- install: `.cursor/install.sh` (Node 22 + corepack pnpm, deps, `pnpm run build`, Grafana 12.3.0 + Pyroscope 1.20.0 binaries, Playwright Chromium)
+- start: `.cursor/start.sh` (kills any `grafana server`, then `demo/start.sh`: Pyroscope :4100, Grafana :3300 with ./dist mounted, seeder `demo/push_profiles.py`)
+- repro check: `demo/repro-check.sh` exits 1 while #1129 exists (expected on demo-base), 0 when fixed. After a code change: `demo/start.sh --build`.
+
+PRs from agents go to Rperry2174/profiles-drilldown only, never grafana/*.

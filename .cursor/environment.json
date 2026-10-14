@@ -1,0 +1,9 @@
+{
+  // Cloud Agent env for the #1129 repro (Pyroscope 1.20.0 + Grafana 12.3.0, no Docker needed).
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    { "name": "stack logs", "command": "tail -F $HOME/.cache/drilldown-demo/logs/grafana.stdout $HOME/.cache/drilldown-demo/logs/pyroscope.log", "description": "Grafana :3300 + Pyroscope :4100; seeder runs from demo/start.sh" }
+  ],
+  "ports": [ { "port": 3300, "name": "Grafana" }, { "port": 4100, "name": "Pyroscope" } ]
+}

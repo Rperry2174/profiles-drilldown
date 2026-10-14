@@ -20,14 +20,14 @@ os=$(uname -s | tr '[:upper:]' '[:lower:]'); arch=$(uname -m)
 case "$arch" in x86_64|amd64) arch=amd64 ;; arm64|aarch64) arch=arm64 ;; *) echo "unsupported arch $arch"; exit 1 ;; esac
 
 if [ ! -x "$DEMO_HOME/bin/grafana-$GF_VER/bin/grafana" ]; then
-  echo "downloading Grafana $GF_VER ($os-$arch)…"
-  curl -fsSL "https://dl.grafana.com/enterprise/release/grafana-enterprise-$GF_VER.$os-$arch.tar.gz" | tar xz -C "$DEMO_HOME/bin"
-  [ -d "$DEMO_HOME/bin/grafana-v$GF_VER" ] && mv "$DEMO_HOME/bin/grafana-v$GF_VER" "$DEMO_HOME/bin/grafana-$GF_VER" || true
+  "$REPO/demo/fetch-grafana.sh" "$GF_VER" "$DEMO_HOME/bin"
 fi
 if [ ! -x "$DEMO_HOME/bin/pyroscope" ]; then
   echo "downloading Pyroscope $PY_VER ($os-$arch)…"
   curl -fsSL "https://github.com/grafana/pyroscope/releases/download/v$PY_VER/pyroscope_${PY_VER}_${os}_${arch}.tar.gz" | tar xz -C "$DEMO_HOME/bin" pyroscope
 fi
+
+[ -n "${DEMO_DOWNLOAD_ONLY:-}" ] && { echo "binaries ready in $DEMO_HOME/bin"; exit 0; }
 
 if [ "${1:-}" = "--build" ] || [ ! -f "$REPO/dist/module.js" ]; then
   echo "building the plugin into ./dist…"
