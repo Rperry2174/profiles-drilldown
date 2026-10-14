@@ -4,4 +4,5 @@
 # Needs the stack up (.cursor/start.sh). Rebuild after code changes: demo/start.sh --build
 set -euo pipefail
 cd "$(dirname "$0")"
+CHROME="$(./find-chrome.sh)"; export CHROME   # empty when Playwright has its own browser
 exec python3 repro_check.py "$@"

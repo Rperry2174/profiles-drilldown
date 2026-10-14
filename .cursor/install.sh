@@ -21,4 +21,7 @@ pnpm run build
 # download Grafana + Pyroscope without starting them
 DEMO_DOWNLOAD_ONLY=1 demo/start.sh
 python3 -m pip install --user -q playwright pytest 2>/dev/null || python3 -m pip install --user --break-system-packages -q playwright pytest
-python3 -m playwright install --with-deps chromium || python3 -m playwright install chromium
+# Playwright's own Chromium comes from storage.googleapis.com, which restricted-egress
+# sandboxes block; demo/repro-check.sh falls back to a system Chrome when it is missing.
+python3 -m playwright install --with-deps chromium || python3 -m playwright install chromium \
+  || demo/find-chrome.sh >/dev/null
