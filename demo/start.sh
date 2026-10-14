@@ -29,6 +29,8 @@ if [ ! -x "$DEMO_HOME/bin/pyroscope" ]; then
   curl -fsSL "https://github.com/grafana/pyroscope/releases/download/v$PY_VER/pyroscope_${PY_VER}_${os}_${arch}.tar.gz" | tar xz -C "$DEMO_HOME/bin" pyroscope
 fi
 
+[ -n "${DEMO_DOWNLOAD_ONLY:-}" ] && { echo "binaries ready in $DEMO_HOME/bin"; exit 0; }
+
 if [ "${1:-}" = "--build" ] || [ ! -f "$REPO/dist/module.js" ]; then
   echo "building the plugin into ./dist…"
   (cd "$REPO" && pnpm install --frozen-lockfile --ignore-scripts && pnpm run build)
