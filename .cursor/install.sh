@@ -11,6 +11,7 @@ if ! node -v 2>/dev/null | grep -q '^v22'; then
   export PATH="$HOME/.local/node22/bin:$PATH"
   grep -q node22 "$HOME/.bashrc" 2>/dev/null || echo 'export PATH="$HOME/.local/node22/bin:$PATH"' >> "$HOME/.bashrc"
 fi
+mkdir -p "$HOME/.local/bin"   # corepack realpath()s --install-directory and fails if it is missing
 corepack enable --install-directory "$HOME/.local/bin" 2>/dev/null || corepack enable
 export PATH="$HOME/.local/bin:$PATH"
 grep -q '.local/bin' "$HOME/.bashrc" 2>/dev/null || echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
