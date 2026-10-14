@@ -12,7 +12,7 @@ mkdir -p "$BIN"
 
 echo "downloading Grafana $GF_VER ($os-$arch)…"
 if curl -fsSL --connect-timeout 15 "https://dl.grafana.com/enterprise/release/grafana-enterprise-$GF_VER.$os-$arch.tar.gz" | tar xz -C "$BIN"; then
-  [ -d "$BIN/grafana-v$GF_VER" ] && mv "$BIN/grafana-v$GF_VER" "$BIN/grafana-$GF_VER"
+  [ -d "$BIN/grafana-v$GF_VER" ] && mv "$BIN/grafana-v$GF_VER" "$BIN/grafana-$GF_VER" || true
   exit 0
 fi
 
