@@ -36,13 +36,14 @@ import { buildTimeSeriesQueryRunner } from '../../infrastructure/timeseries/buil
 import { addRefId, addStats } from '../SceneByVariableRepeaterGrid/infrastructure/data-transformations';
 import {
   addExemplarTransformations,
-  HIGHLIGHTED_SERIES_REF_ID,
   getHighlightedSeriesOverrides,
+  HIGHLIGHTED_SERIES_REF_ID,
 } from '../SceneByVariableRepeaterGrid/infrastructure/exemplars-transformations';
 import { GridItemData } from '../SceneByVariableRepeaterGrid/types/GridItemData';
 import { RangeAnnotation } from '../SceneExploreDiffFlameGraph/components/SceneComparePanel/domain/RangeAnnotation';
 import { TimeseriesReprocess } from './domain/events/TimeseriesReprocess';
 import { SceneTimeseriesMenu } from './SceneTimeseriesMenu';
+import { servicePanelTitleLayout, titleOverflowsInlineSlot } from './servicePanelTitle';
 
 interface SceneLabelValuesTimeseriesState extends SceneObjectState {
   item: GridItemData;
@@ -63,6 +64,36 @@ const styles = {
   highlightedExemplar: css({
     'div:last-child > [data-testid*="Exemplar marker"] svg': {
       opacity: '1 !important',
+    },
+  }),
+  // Namespaced service names share a prefix. The header ellipsizes the end, so
+  // give the title its own row when it does not fit beside the actions.
+  stackedTitle: css({
+    '[class*="panel-header"]': {
+      display: 'grid',
+      gridTemplateColumns: '1fr auto auto',
+      gridTemplateAreas: '"title title title" "items actions menu"',
+      height: 'auto',
+      maxHeight: 'none',
+      alignItems: 'center',
+    },
+    '[class*="panel-title"]': {
+      gridArea: 'title',
+      maxWidth: '100%',
+      minWidth: 0,
+    },
+    '[class*="panel-title"] h2': {
+      maxWidth: '100%',
+    },
+    '[data-testid="title-items-container"]': {
+      gridArea: 'items',
+    },
+    '[class*="right-aligned-container"]': {
+      gridArea: 'actions',
+      justifySelf: 'end',
+    },
+    '[class*="panel-menu"]': {
+      gridArea: 'menu',
     },
   }),
 };
@@ -475,12 +506,53 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
   static Component = SceneLabelValuesTimeseriesComponent;
 }
 
+function inlineTitleOverflows(root: HTMLElement): boolean | null {
+  const header = root.querySelector('[class*="panel-header"]');
+  const h2 = header?.querySelector('h2');
+  if (!header || !h2) {
+    return null;
+  }
+
+  const actions = header.querySelector('[class*="right-aligned-container"]');
+  const menu = header.querySelector('[class*="panel-menu"]');
+  const actionsWidth = (actions?.getBoundingClientRect().width ?? 0) + (menu?.getBoundingClientRect().width ?? 0);
+  const range = document.createRange();
+  range.selectNodeContents(h2);
+  const textWidth = range.getBoundingClientRect().width;
+
+  return titleOverflowsInlineSlot(textWidth, header.getBoundingClientRect().width, actionsWidth);
+}
+
 function SceneLabelValuesTimeseriesComponent({ model }: SceneComponentProps<SceneLabelValuesTimeseries>) {
-  const { body } = model.useState();
+  const { body, item } = model.useState();
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const [stacked, setStacked] = React.useState(() => servicePanelTitleLayout(item.label) === 'stacked');
   const hasSelectedExemplar = useHasSelectedExemplar(model);
 
+  React.useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) {
+      return;
+    }
+
+    const measure = () => {
+      const overflows = inlineTitleOverflows(root);
+      if (overflows !== null) {
+        setStacked(overflows);
+      }
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, [item.label]);
+
   return (
-    <div className={cx(styles.wrapper, hasSelectedExemplar && styles.highlightedExemplar)}>
+    <div
+      ref={rootRef}
+      className={cx(styles.wrapper, stacked && styles.stackedTitle, hasSelectedExemplar && styles.highlightedExemplar)}
+    >
       <body.Component model={body} />
     </div>
   );
