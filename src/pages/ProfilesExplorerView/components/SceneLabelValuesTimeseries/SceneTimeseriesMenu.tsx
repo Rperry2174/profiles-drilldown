@@ -5,13 +5,11 @@ import {
   SceneComponentProps,
   SceneDataQuery,
   sceneGraph,
-  SceneObject,
   SceneObjectBase,
   SceneObjectState,
   SceneQueryRunner,
   VizPanel,
   VizPanelMenu,
-  VizPanelState,
 } from '@grafana/scenes';
 import { ScaleDistribution, ScaleDistributionConfig } from '@grafana/schema';
 import React, { useEffect } from 'react';
@@ -35,22 +33,6 @@ import { SceneLabelValuesTimeseries } from './SceneLabelValuesTimeseries';
  */
 const MENU_DIVIDER_AFTER_EXEMPLARS = 'divider-after-exemplars';
 const MENU_DIVIDER_BEFORE_ACTIONS = 'divider-before-actions';
-const ACTIONS_IN_PANEL_MENU = new Set(['view-profiles', 'view-labels']);
-
-export function moveSelectActionsToMenu(actions: VizPanelState['headerActions'] = []) {
-  const headerActions: SceneObject[] = [];
-  const selectActions: SelectAction[] = [];
-
-  for (const action of actions as SceneObject[]) {
-    if (action instanceof SelectAction && ACTIONS_IN_PANEL_MENU.has(action.state.type)) {
-      selectActions.push(action);
-    } else {
-      headerActions.push(action);
-    }
-  }
-
-  return { headerActions, selectActions };
-}
 
 interface SceneTimeseriesMenuState extends SceneObjectState {
   items?: PanelMenuItem[];
@@ -58,7 +40,6 @@ interface SceneTimeseriesMenuState extends SceneObjectState {
   showExemplars?: boolean; // undefined means that the Exemplars button is not shown in the menu. Otherwise, it's shown and the value is the current state of the Exemplars button.
   includeAddToDashboard?: boolean;
   selectAction?: SelectAction;
-  selectActions?: SelectAction[];
   favAction?: FavAction;
 }
 
@@ -105,7 +86,6 @@ export class SceneTimeseriesMenu extends SceneObjectBase<SceneTimeseriesMenuStat
         type: 'divider',
         text: MENU_DIVIDER_BEFORE_ACTIONS,
       },
-      ...this.buildSelectActionItems(),
       {
         iconClassName: 'compass',
         text: t('timeseries.menu.open-in-explore', 'Open in Explore'),
@@ -121,7 +101,7 @@ export class SceneTimeseriesMenu extends SceneObjectBase<SceneTimeseriesMenuStat
       });
     }
 
-    menuItems.push(...this.buildFavActionItems());
+    menuItems.push(...this.buildSecondaryActionItems());
 
     if (showExemplars !== undefined) {
       menuItems.unshift(
@@ -140,36 +120,29 @@ export class SceneTimeseriesMenu extends SceneObjectBase<SceneTimeseriesMenuStat
     return menuItems;
   }
 
-  private buildSelectActionItems(): PanelMenuItem[] {
-    const { selectActions, selectAction } = this.state;
-    const actions = [...(selectActions ?? [])];
+  private buildSecondaryActionItems(): PanelMenuItem[] {
+    const { selectAction, favAction } = this.state;
+    const items: PanelMenuItem[] = [];
+
     if (selectAction) {
-      actions.push(selectAction);
+      items.push({
+        text: selectAction.state.label ?? t('timeseries.menu.labels', 'Labels'),
+        onClick: selectAction.onClick,
+      });
     }
 
-    return actions.map((action) => ({
-      iconClassName: action.state.icon,
-      text: action.state.label ?? action.state.ariaLabel ?? t('timeseries.menu.labels', 'Labels'),
-      onClick: action.onClick,
-    }));
-  }
-
-  private buildFavActionItems(): PanelMenuItem[] {
-    const { favAction } = this.state;
-    if (!favAction) {
-      return [];
-    }
-
-    return [
-      {
+    if (favAction) {
+      items.push({
         iconClassName: favAction.state.isFav ? 'favorite' : 'star',
         text: favAction.state.isFav ? t('actions.fav.unfavorite', 'Unfavorite') : t('actions.fav.favorite', 'Favorite'),
         onClick: () => {
           favAction.onClick();
           this.setState({ items: this.buildMenuItems() });
         },
-      },
-    ];
+      });
+    }
+
+    return items;
   }
 
   private onClickToggleExemplars() {

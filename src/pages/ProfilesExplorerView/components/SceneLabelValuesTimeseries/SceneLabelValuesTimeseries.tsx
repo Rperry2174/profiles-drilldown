@@ -42,7 +42,7 @@ import {
 import { GridItemData } from '../SceneByVariableRepeaterGrid/types/GridItemData';
 import { RangeAnnotation } from '../SceneExploreDiffFlameGraph/components/SceneComparePanel/domain/RangeAnnotation';
 import { TimeseriesReprocess } from './domain/events/TimeseriesReprocess';
-import { moveSelectActionsToMenu, SceneTimeseriesMenu } from './SceneTimeseriesMenu';
+import { SceneTimeseriesMenu } from './SceneTimeseriesMenu';
 
 interface SceneLabelValuesTimeseriesState extends SceneObjectState {
   item: GridItemData;
@@ -98,8 +98,6 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
       spanExemplarToggleAction
     );
     Object.assign(menuState, menuActions);
-    const { headerActions: chromeActions, selectActions } = moveSelectActionsToMenu(processedHeaderActions(item));
-    Object.assign(menuState, { selectActions });
 
     super({
       key: 'timeseries-label-values',
@@ -123,9 +121,8 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
               transformations: [],
             })
         )
-        .setHeaderActions(chromeActions)
+        .setHeaderActions(processedHeaderActions(item))
         .setMenu(new SceneTimeseriesMenu(menuState) as unknown as VizPanelMenu)
-        .setShowMenuAlways(true)
         .build(),
     });
 
@@ -438,16 +435,11 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
 
     this.setState({ item: updatedItem });
 
-    const { headerActions: chromeActions, selectActions } = moveSelectActionsToMenu(headerActions(updatedItem));
-
     body.setState({
       title: partialItem.label,
       description: this.buildDescription(updatedItem.queryRunnerParams.groupBy),
-      headerActions: chromeActions,
+      headerActions: headerActions(updatedItem),
     });
-
-    const menu = body.state.menu as SceneTimeseriesMenu | undefined;
-    menu?.setState({ selectActions, items: menu.buildMenuItems() });
 
     if (!isEqual(item.queryRunnerParams, updatedItem.queryRunnerParams)) {
       const { queries } = buildTimeSeriesQueryRunner(
