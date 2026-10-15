@@ -73,8 +73,11 @@ const styles = {
       display: 'grid',
       gridTemplateColumns: '1fr auto auto',
       gridTemplateAreas: '"title title title" "items actions menu"',
-      height: 'auto',
-      maxHeight: 'none',
+      // PanelChrome sets the header height inline to one row. The title row
+      // needs that override or the actions land under the chart and miss clicks.
+      height: 'auto !important',
+      maxHeight: 'none !important',
+      flexShrink: 0,
       alignItems: 'center',
     },
     '[class*="panel-title"]': {
