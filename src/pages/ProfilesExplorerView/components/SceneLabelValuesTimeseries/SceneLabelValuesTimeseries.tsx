@@ -36,12 +36,13 @@ import { buildTimeSeriesQueryRunner } from '../../infrastructure/timeseries/buil
 import { addRefId, addStats } from '../SceneByVariableRepeaterGrid/infrastructure/data-transformations';
 import {
   addExemplarTransformations,
-  HIGHLIGHTED_SERIES_REF_ID,
   getHighlightedSeriesOverrides,
+  HIGHLIGHTED_SERIES_REF_ID,
 } from '../SceneByVariableRepeaterGrid/infrastructure/exemplars-transformations';
 import { GridItemData } from '../SceneByVariableRepeaterGrid/types/GridItemData';
 import { RangeAnnotation } from '../SceneExploreDiffFlameGraph/components/SceneComparePanel/domain/RangeAnnotation';
 import { TimeseriesReprocess } from './domain/events/TimeseriesReprocess';
+import { availableTitleBox, panelTitleNeedsOwnRow } from './panelTitleNeedsOwnRow';
 import { SceneTimeseriesMenu } from './SceneTimeseriesMenu';
 
 interface SceneLabelValuesTimeseriesState extends SceneObjectState {
@@ -57,6 +58,21 @@ const styles = {
   wrapper: css({
     width: '100%',
     height: '100%',
+    // The header is a fixed-height flex row. An empty title-items spacer is
+    // height: 100%, so a wrapped second row overflows the chart unless both are reset.
+    '&[data-panel-title-own-row] [class*="panel-header"]': {
+      flexWrap: 'wrap',
+      flexShrink: 0,
+      height: 'auto !important',
+      maxHeight: 'none',
+    },
+    '&[data-panel-title-own-row] [class*="panel-title"]': {
+      flex: '1 0 100%',
+      maxWidth: '100%',
+    },
+    '&[data-panel-title-own-row] [data-testid="title-items-container"]:empty': {
+      display: 'none',
+    },
   }),
   // Grafana renders exemplar markers at 50% opacity by default (ExemplarMarker.tsx).
   // The highlighted exemplar frame is appended last, so its marker is the last child in the DOM.
@@ -478,12 +494,114 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
 function SceneLabelValuesTimeseriesComponent({ model }: SceneComponentProps<SceneLabelValuesTimeseries>) {
   const { body } = model.useState();
   const hasSelectedExemplar = useHasSelectedExemplar(model);
+  const rootRef = useOwnRowForOverflowingPanelTitle();
 
   return (
-    <div className={cx(styles.wrapper, hasSelectedExemplar && styles.highlightedExemplar)}>
+    <div ref={rootRef} className={cx(styles.wrapper, hasSelectedExemplar && styles.highlightedExemplar)}>
       <body.Component model={body} />
     </div>
   );
+}
+
+function measureTitleBox(header: HTMLElement, h2: HTMLElement): number {
+  const title = h2.parentElement;
+  if (!(title instanceof HTMLElement) || header.clientWidth <= 0) {
+    return h2.clientWidth;
+  }
+
+  let reserved = 0;
+  for (const child of Array.from(header.children)) {
+    if (child === title || !(child instanceof HTMLElement)) {
+      continue;
+    }
+    reserved += child.offsetWidth;
+  }
+
+  const style = getComputedStyle(title);
+  const padding = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+  return availableTitleBox(header.clientWidth, reserved, padding);
+}
+
+function useOwnRowForOverflowingPanelTitle() {
+  const rootRef = React.useRef<HTMLDivElement>(null);
+
+  React.useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) {
+      return;
+    }
+    // Nested functions don't keep the control-flow narrowing on `root`.
+    const panelRoot: HTMLDivElement = root;
+
+    let frame = 0;
+    let header: HTMLElement | null = null;
+    const resizeObserver = new ResizeObserver(schedule);
+    const headerObserver = new MutationObserver(schedule);
+    const bootObserver = new MutationObserver(() => {
+      if (watchHeader()) {
+        bootObserver.disconnect();
+        schedule();
+      }
+    });
+
+    function schedule() {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(fit);
+    }
+
+    function watchHeader() {
+      const next = panelRoot.querySelector('[class*="panel-header"]');
+      if (!(next instanceof HTMLElement) || next === header) {
+        return header !== null;
+      }
+
+      if (header) {
+        resizeObserver.unobserve(header);
+        headerObserver.disconnect();
+      }
+      header = next;
+      resizeObserver.observe(header);
+      headerObserver.observe(header, { subtree: true, childList: true, characterData: true });
+      return true;
+    }
+
+    function fit() {
+      if (!watchHeader() || !header) {
+        return;
+      }
+
+      const h2 = header.querySelector('h2');
+      if (!(h2 instanceof HTMLElement) || h2.clientWidth <= 0) {
+        return;
+      }
+
+      const needsRow = panelTitleNeedsOwnRow(h2.scrollWidth, measureTitleBox(header, h2));
+      const hasRow = panelRoot.hasAttribute('data-panel-title-own-row');
+      if (needsRow === hasRow) {
+        return;
+      }
+      if (needsRow) {
+        panelRoot.setAttribute('data-panel-title-own-row', '');
+      } else {
+        panelRoot.removeAttribute('data-panel-title-own-row');
+      }
+    }
+
+    bootObserver.observe(panelRoot, { childList: true, subtree: true });
+    if (watchHeader()) {
+      bootObserver.disconnect();
+    }
+    schedule();
+
+    return () => {
+      cancelAnimationFrame(frame);
+      resizeObserver.disconnect();
+      headerObserver.disconnect();
+      bootObserver.disconnect();
+    };
+  }, []);
+
+  return rootRef;
 }
 
 function useHasSelectedExemplar(model: SceneObject): boolean {
