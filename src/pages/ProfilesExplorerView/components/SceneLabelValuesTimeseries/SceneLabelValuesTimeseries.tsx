@@ -517,7 +517,6 @@ function useOwnRowForOverflowingPanelTitle() {
     const panelRoot: HTMLDivElement = root;
 
     let frame = 0;
-    let lastText = '';
     let header: HTMLElement | null = null;
     const resizeObserver = new ResizeObserver(schedule);
     const headerObserver = new MutationObserver(schedule);
@@ -549,17 +548,9 @@ function useOwnRowForOverflowingPanelTitle() {
         return;
       }
 
-      const text = h2.textContent ?? '';
-      if (text !== lastText) {
-        lastText = text;
-        // Measuring while the own-row layout is applied reports the title as fitting,
-        // so drop it before reading sizes. Reading scrollWidth flushes layout.
-        panelRoot.removeAttribute('data-panel-title-own-row');
-      }
-
-      if (panelRoot.hasAttribute('data-panel-title-own-row')) {
-        return;
-      }
+      // Measuring while the own-row layout is applied reports the title as fitting,
+      // so drop it before reading sizes. Reading scrollWidth flushes layout.
+      panelRoot.removeAttribute('data-panel-title-own-row');
 
       if (panelTitleNeedsOwnRow(h2.scrollWidth, h2.clientWidth)) {
         panelRoot.setAttribute('data-panel-title-own-row', '');
