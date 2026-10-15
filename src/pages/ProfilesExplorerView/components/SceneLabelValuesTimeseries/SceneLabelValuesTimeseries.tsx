@@ -447,7 +447,12 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
     });
 
     const menu = body.state.menu as SceneTimeseriesMenu | undefined;
-    menu?.setState({ selectActions, items: menu.buildMenuItems() });
+    if (menu) {
+      // `buildMenuItems()` reads `selectActions` from state, so they must be stored before rebuilding
+      // the items, otherwise the menu keeps calling the actions built for the previous item.
+      menu.setState({ selectActions });
+      menu.setState({ items: menu.buildMenuItems() });
+    }
 
     if (!isEqual(item.queryRunnerParams, updatedItem.queryRunnerParams)) {
       const { queries } = buildTimeSeriesQueryRunner(

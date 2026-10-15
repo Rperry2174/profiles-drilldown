@@ -91,9 +91,23 @@ describe('SceneLabelValuesTimeseries service titles', () => {
     expect(updatedTypes).not.toContain('view-profiles');
     expect(updatedTypes).not.toContain('view-labels');
     expect(updatedTypes).toContain('view-flame-graph');
-    expect(
-      (scene.state.body.state.menu as unknown as SceneTimeseriesMenu).state.items?.map((item) => item.text)
-    ).toEqual(expect.arrayContaining(['Profile types', 'Labels']));
+    const updatedMenu = scene.state.body.state.menu as unknown as SceneTimeseriesMenu;
+    expect(updatedMenu.state.items?.map((item) => item.text)).toEqual(
+      expect.arrayContaining(['Profile types', 'Labels'])
+    );
+
+    // the menu items must call the actions built for the updated item, not the previous ones
+    const updatedSelectActions = updatedMenu.state.selectActions ?? [];
+    expect(updatedSelectActions.map((action) => action.state.item.label)).toEqual([
+      'ridesharing-production/payments-api',
+      'ridesharing-production/payments-api',
+    ]);
+    expect(updatedMenu.state.items?.find((item) => item.text === 'Profile types')?.onClick).toBe(
+      updatedSelectActions[0].onClick
+    );
+    expect(updatedMenu.state.items?.find((item) => item.text === 'Labels')?.onClick).toBe(
+      updatedSelectActions[1].onClick
+    );
   });
 
   it('leaves a short service name as the panel title', () => {
