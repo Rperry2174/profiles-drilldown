@@ -16,6 +16,10 @@ if curl -fsSL --connect-timeout 15 "https://dl.grafana.com/enterprise/release/gr
   exit 0
 fi
 
+# The image only ships linux binaries, so caching one anywhere else would leave
+# $BIN/grafana-$GF_VER executable but unrunnable, and start.sh would never refetch.
+[ "$os" = linux ] || { echo "dl.grafana.com unreachable and $IMAGE only ships linux binaries; cannot install Grafana $GF_VER for $os-$arch"; exit 1; }
+
 echo "dl.grafana.com unreachable; falling back to the $IMAGE:$GF_VER image layers…"
 rm -rf "${BIN:?}/grafana-$GF_VER"
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
