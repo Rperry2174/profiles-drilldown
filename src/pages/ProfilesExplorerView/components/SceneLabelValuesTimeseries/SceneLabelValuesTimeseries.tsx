@@ -58,6 +58,17 @@ const styles = {
     width: '100%',
     height: '100%',
   }),
+  // Namespaced names ("namespace/service") share their prefix, so ellipsize from the start to keep the
+  // distinct part visible. The LRM marks keep leading/trailing punctuation in place under rtl.
+  startTruncatedTitle: css({
+    'h2[title]': {
+      direction: 'rtl',
+      textAlign: 'left',
+    },
+    'h2[title]::before, h2[title]::after': {
+      content: '"\\200E"',
+    },
+  }),
   // Grafana renders exemplar markers at 50% opacity by default (ExemplarMarker.tsx).
   // The highlighted exemplar frame is appended last, so its marker is the last child in the DOM.
   highlightedExemplar: css({
@@ -477,10 +488,17 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
 
 function SceneLabelValuesTimeseriesComponent({ model }: SceneComponentProps<SceneLabelValuesTimeseries>) {
   const { body } = model.useState();
+  const { title } = body.useState();
   const hasSelectedExemplar = useHasSelectedExemplar(model);
 
   return (
-    <div className={cx(styles.wrapper, hasSelectedExemplar && styles.highlightedExemplar)}>
+    <div
+      className={cx(
+        styles.wrapper,
+        hasSelectedExemplar && styles.highlightedExemplar,
+        title?.includes('/') && styles.startTruncatedTitle
+      )}
+    >
       <body.Component model={body} />
     </div>
   );
