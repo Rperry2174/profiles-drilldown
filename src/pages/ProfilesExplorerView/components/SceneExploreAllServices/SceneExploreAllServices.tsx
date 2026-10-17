@@ -19,6 +19,10 @@ import { SceneQuickFilter } from '../SceneByVariableRepeaterGrid/components/Scen
 
 interface SceneExploreAllServicesState extends EmbeddedSceneState {}
 
+// The text actions take ~160px of the panel header, so past this length Grafana ellipsizes the title
+// (e.g. namespaced names all render as "ridesharing-production/…" in a 3-column grid at 1440px).
+const MAX_LABEL_LENGTH_WITH_TEXT_ACTIONS = 24;
+
 export class SceneExploreAllServices extends SceneObjectBase<SceneExploreAllServicesState> {
   constructor() {
     super({
@@ -46,12 +50,16 @@ export class SceneExploreAllServices extends SceneObjectBase<SceneExploreAllServ
           },
           panelType: PanelType.TIMESERIES,
         }),
-        headerActions: (item) => [
-          new SelectAction({ type: 'view-profiles', item }),
-          new SelectAction({ type: 'view-labels', item }),
-          new SelectAction({ type: 'view-flame-graph', item }),
-          new FavAction({ item }),
-        ],
+        headerActions: (item) => {
+          const compact = item.label.length > MAX_LABEL_LENGTH_WITH_TEXT_ACTIONS;
+
+          return [
+            new SelectAction({ type: 'view-profiles', item, compact }),
+            new SelectAction({ type: 'view-labels', item, compact }),
+            new SelectAction({ type: 'view-flame-graph', item, compact }),
+            new FavAction({ item }),
+          ];
+        },
       }),
     });
 
