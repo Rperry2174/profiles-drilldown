@@ -53,6 +53,22 @@ interface SceneLabelValuesTimeseriesState extends SceneObjectState {
   overrides?: (series: DataFrame[]) => VizPanelState['fieldConfig']['overrides'];
 }
 
+// Longer titles (e.g. namespaced service names) get ellipsized by the labelled select buttons in a 3-column grid
+// at common widths, hiding the part of the name that tells panels apart.
+const MAX_TITLE_LENGTH_WITH_LABELLED_ACTIONS = 24;
+
+function compactSelectActionsForLongTitle(
+  headerActions: VizPanelState['headerActions'],
+  title: string
+): VizPanelState['headerActions'] {
+  if (title.length > MAX_TITLE_LENGTH_WITH_LABELLED_ACTIONS && Array.isArray(headerActions)) {
+    headerActions
+      .filter((action): action is SelectAction => action instanceof SelectAction)
+      .forEach((action) => action.setState({ compact: true }));
+  }
+  return headerActions;
+}
+
 const styles = {
   wrapper: css({
     width: '100%',
@@ -121,7 +137,7 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
               transformations: [],
             })
         )
-        .setHeaderActions(processedHeaderActions(item))
+        .setHeaderActions(compactSelectActionsForLongTitle(processedHeaderActions(item), item.label))
         .setMenu(new SceneTimeseriesMenu(menuState) as unknown as VizPanelMenu)
         .build(),
     });
@@ -438,7 +454,7 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
     body.setState({
       title: partialItem.label,
       description: this.buildDescription(updatedItem.queryRunnerParams.groupBy),
-      headerActions: headerActions(updatedItem),
+      headerActions: compactSelectActionsForLongTitle(headerActions(updatedItem), updatedItem.label),
     });
 
     if (!isEqual(item.queryRunnerParams, updatedItem.queryRunnerParams)) {
