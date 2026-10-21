@@ -49,8 +49,11 @@ export class AllServicesFilterVariable extends AdHocFiltersVariable {
   }
 
   private onQueryChange = (_query: string, filters: CompleteFilters) => {
+    // the query builder never displays service_name matchers (see queryToFilters), so it cannot return them
+    const serviceNameFilters = this.state.filters.filter(({ key }) => key === 'service_name');
+
     this.setState({
-      filters: filters.map(convertPyroscopeToVariableFilter),
+      filters: [...serviceNameFilters, ...filters.map(convertPyroscopeToVariableFilter)],
     });
   };
 
