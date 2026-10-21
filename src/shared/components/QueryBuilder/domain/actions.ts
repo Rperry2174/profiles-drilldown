@@ -242,6 +242,11 @@ export const actions: any = {
       labelsRepository.setApiClient(new LabelsApiClient({ dataSourceUid: event.data.dataSourceUid }));
     }
 
+    // Rebuilding the filters from the query would drop the ones not in it yet (e.g. a partial filter)
+    if (event.data.query === context.inputParams.query) {
+      return { inputParams: event.data };
+    }
+
     return {
       inputParams: event.data,
       query: event.data.query,
