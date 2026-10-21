@@ -1,4 +1,5 @@
 import { FilterKind, Filters } from '../../types';
+import { filtersToQuery } from '../filtersToQuery';
 import { parseRawFilters, queryToFilters } from '../queryToFilters';
 
 type ParseRawFiltersTestCase = [string, string[][]];
@@ -313,5 +314,24 @@ const cases: TestCase[] = [
 describe('queryToFilters(query: string)', () => {
   test.each<TestCase>(cases)("given '%s' as argument, it produces '%s'", (query, expectedFilters) => {
     expect(queryToFilters(query)).toEqual(expectedFilters);
+  });
+});
+
+describe('filtersToQuery() then queryToFilters() (page reload)', () => {
+  test.each(['region', 'k8s.node.name'])("keeps the '!=' operator for label '%s'", (attribute) => {
+    const filters: Filters = [
+      {
+        id: 'id',
+        type: FilterKind['attribute-operator-value'],
+        active: true,
+        attribute: { label: attribute, value: attribute },
+        operator: { label: '!=', value: '!=' },
+        value: { label: 'us-east-1', value: 'us-east-1' },
+      },
+    ];
+
+    const query = filtersToQuery('process_cpu:cpu:nanoseconds:cpu:nanoseconds{service_name="svc"}', filters);
+
+    expect(queryToFilters(query)).toEqual([{ ...filters[0], id: expect.any(String) }]);
   });
 });
