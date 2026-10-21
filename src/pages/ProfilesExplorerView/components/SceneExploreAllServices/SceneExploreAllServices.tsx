@@ -13,6 +13,7 @@ import { SelectAction } from '../../domain/actions/SelectAction';
 import { AllServicesFilterVariable } from '../../domain/variables/FiltersVariable/AllServicesFilterVariable';
 import { ProfileMetricVariable } from '../../domain/variables/ProfileMetricVariable';
 import { ServiceNameVariable } from '../../domain/variables/ServiceNameVariable/ServiceNameVariable';
+import { compactSelectActionsForLongTitle } from '../../helpers/compactSelectActionsForLongTitle';
 import { SceneLayoutSwitcher } from '../SceneByVariableRepeaterGrid/components/SceneLayoutSwitcher';
 import { PanelType } from '../SceneByVariableRepeaterGrid/components/ScenePanelTypeSwitcher';
 import { SceneQuickFilter } from '../SceneByVariableRepeaterGrid/components/SceneQuickFilter';
@@ -46,12 +47,17 @@ export class SceneExploreAllServices extends SceneObjectBase<SceneExploreAllServ
           },
           panelType: PanelType.TIMESERIES,
         }),
-        headerActions: (item) => [
-          new SelectAction({ type: 'view-profiles', item }),
-          new SelectAction({ type: 'view-labels', item }),
-          new SelectAction({ type: 'view-flame-graph', item }),
-          new FavAction({ item }),
-        ],
+        // the panels of this grid are laid out in up to 3 columns, so the title needs the room taken by labelled actions
+        headerActions: (item) =>
+          compactSelectActionsForLongTitle(
+            [
+              new SelectAction({ type: 'view-profiles', item }),
+              new SelectAction({ type: 'view-labels', item }),
+              new SelectAction({ type: 'view-flame-graph', item }),
+              new FavAction({ item }),
+            ],
+            item.label
+          ),
       }),
     });
 
