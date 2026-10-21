@@ -19,6 +19,10 @@ import { SceneQuickFilter } from '../SceneByVariableRepeaterGrid/components/Scen
 
 interface SceneExploreAllServicesState extends EmbeddedSceneState {}
 
+// In a 3-column grid at 1440px, the text actions leave ~177px for the title (~24 characters).
+// Longer service names (e.g. "namespace/service") would be cut before the part that tells them apart.
+const MAX_LABEL_LENGTH_WITH_TEXT_ACTIONS = 24;
+
 export class SceneExploreAllServices extends SceneObjectBase<SceneExploreAllServicesState> {
   constructor() {
     super({
@@ -46,12 +50,16 @@ export class SceneExploreAllServices extends SceneObjectBase<SceneExploreAllServ
           },
           panelType: PanelType.TIMESERIES,
         }),
-        headerActions: (item) => [
-          new SelectAction({ type: 'view-profiles', item }),
-          new SelectAction({ type: 'view-labels', item }),
-          new SelectAction({ type: 'view-flame-graph', item }),
-          new FavAction({ item }),
-        ],
+        headerActions: (item) => {
+          const compact = item.label.length > MAX_LABEL_LENGTH_WITH_TEXT_ACTIONS;
+
+          return [
+            new SelectAction({ type: 'view-profiles', item, compact }),
+            new SelectAction({ type: 'view-labels', item, compact }),
+            new SelectAction({ type: 'view-flame-graph', item, compact }),
+            new FavAction({ item }),
+          ];
+        },
       }),
     });
 
