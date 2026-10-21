@@ -19,6 +19,8 @@ type ActionType = 'expand-panel' | 'select-label' | 'view-flame-graph' | 'view-l
 
 type EventLookup = {
   icon?: IconName;
+  // shown instead of the label when the panel title needs the header space (see SceneLabelValuesTimeseries)
+  compactIcon?: IconName;
   label?: string;
   ariaLabel?: string;
   tooltip: (item: GridItemData, model: SceneObject) => string;
@@ -52,6 +54,7 @@ const Events = new Map<ActionType, EventLookup>([
     'view-flame-graph',
     Object.freeze({
       label: 'Flame graph',
+      compactIcon: 'fire',
       tooltip: ({ queryRunnerParams }, model) => {
         const serviceName = queryRunnerParams.serviceName || getSceneVariableValue(model, 'serviceName');
         const profileMetricId = queryRunnerParams.profileMetricId || getSceneVariableValue(model, 'profileMetricId');
@@ -64,6 +67,7 @@ const Events = new Map<ActionType, EventLookup>([
     'view-labels',
     Object.freeze({
       label: 'Labels',
+      compactIcon: 'tag-alt',
       tooltip: ({ queryRunnerParams }, model) => {
         const serviceName = queryRunnerParams.serviceName || getSceneVariableValue(model, 'serviceName');
         return `Explore the labels of ${serviceName}`;
@@ -75,6 +79,7 @@ const Events = new Map<ActionType, EventLookup>([
     'view-profiles',
     Object.freeze({
       label: 'Profile types',
+      compactIcon: 'gf-grid',
       tooltip: ({ queryRunnerParams }, model) => {
         const serviceName = queryRunnerParams.serviceName || getSceneVariableValue(model, 'serviceName');
         return `View the profile types of ${serviceName}`;
@@ -91,6 +96,8 @@ interface SelectActionState extends SceneObjectState {
   label?: string;
   ariaLabel?: string;
   icon?: IconName;
+  compactIcon?: IconName;
+  compact?: boolean;
   tooltip?: EventLookup['tooltip'];
   skipVariablesInterpolation?: boolean;
 }
@@ -138,7 +145,8 @@ export class SelectAction extends SceneObjectBase<SelectActionState> {
 
   public static Component = ({ model }: SceneComponentProps<SelectAction>) => {
     const styles = useStyles2(getStyles);
-    const { ariaLabel, label, icon, tooltip, item } = model.useState();
+    const { ariaLabel, label, icon, compactIcon, compact, tooltip, item } = model.useState();
+    const isCompact = Boolean(compact && compactIcon);
 
     return (
       <Button
@@ -148,11 +156,11 @@ export class SelectAction extends SceneObjectBase<SelectActionState> {
         size="sm"
         fill="text"
         onClick={model.onClick}
-        icon={icon}
+        icon={isCompact ? compactIcon : icon}
         tooltip={tooltip?.(item, model)}
         tooltipPlacement="top"
       >
-        {label}
+        {isCompact ? null : label}
       </Button>
     );
   };

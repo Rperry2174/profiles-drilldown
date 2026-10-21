@@ -51,6 +51,7 @@ interface SceneLabelValuesTimeseriesState extends SceneObjectState {
   displayAllValues: boolean;
   legendPlacement: VizLegendOptions['placement'];
   overrides?: (series: DataFrame[]) => VizPanelState['fieldConfig']['overrides'];
+  compactHeaderActions?: { width: number; title?: string };
 }
 
 const styles = {
@@ -440,6 +441,7 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
       description: this.buildDescription(updatedItem.queryRunnerParams.groupBy),
       headerActions: headerActions(updatedItem),
     });
+    this.applyCompactHeaderActions();
 
     if (!isEqual(item.queryRunnerParams, updatedItem.queryRunnerParams)) {
       const { queries } = buildTimeSeriesQueryRunner(
@@ -452,6 +454,47 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
       // this allows us not to have to subscribe to the data provider changes as we do in onActivate() above
       queryRunner?.setState({ queries });
       queryRunner?.runQueries();
+    }
+  }
+
+  /**
+   * The panel header ellipsizes the title to make room for the header actions, so long titles that only differ
+   * at the end (e.g. "namespace/service-a" and "namespace/service-b") look identical. When the title is clipped,
+   * the text actions switch to icons. The panel width is recorded at that moment and the text actions only come
+   * back when the panel grows: the title fits once compacted, so measuring it again would flip back and forth.
+   */
+  fitHeaderActionsToTitle(container: HTMLElement) {
+    const { compactHeaderActions, body } = this.state;
+    const width = container.clientWidth;
+
+    if (compactHeaderActions) {
+      if (width > compactHeaderActions.width || body.state.title !== compactHeaderActions.title) {
+        this.setState({ compactHeaderActions: undefined });
+        this.applyCompactHeaderActions();
+      }
+      return;
+    }
+
+    const titleElement = container.querySelector('h2');
+
+    if (titleElement && titleElement.scrollWidth > titleElement.clientWidth) {
+      this.setState({ compactHeaderActions: { width, title: body.state.title } });
+      this.applyCompactHeaderActions();
+    }
+  }
+
+  private applyCompactHeaderActions() {
+    const { body, compactHeaderActions } = this.state;
+    const { headerActions } = body.state;
+
+    if (!Array.isArray(headerActions)) {
+      return;
+    }
+
+    for (const action of headerActions) {
+      if (action instanceof SelectAction) {
+        action.setState({ compact: Boolean(compactHeaderActions) });
+      }
     }
   }
 
@@ -476,11 +519,26 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
 }
 
 function SceneLabelValuesTimeseriesComponent({ model }: SceneComponentProps<SceneLabelValuesTimeseries>) {
-  const { body } = model.useState();
+  const { body, compactHeaderActions } = model.useState();
+  const { title } = body.useState();
   const hasSelectedExemplar = useHasSelectedExemplar(model);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => model.fitHeaderActionsToTitle(container));
+    observer.observe(container);
+    model.fitHeaderActionsToTitle(container);
+
+    return () => observer.disconnect();
+  }, [model, title, compactHeaderActions]);
 
   return (
-    <div className={cx(styles.wrapper, hasSelectedExemplar && styles.highlightedExemplar)}>
+    <div ref={containerRef} className={cx(styles.wrapper, hasSelectedExemplar && styles.highlightedExemplar)}>
       <body.Component model={body} />
     </div>
   );
