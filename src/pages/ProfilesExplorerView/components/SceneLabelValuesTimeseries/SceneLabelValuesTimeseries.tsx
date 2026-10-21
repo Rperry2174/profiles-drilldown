@@ -527,27 +527,45 @@ function SceneLabelValuesTimeseriesComponent({ model }: SceneComponentProps<Scen
 
 function useCompactHeaderActions(model: SceneLabelValuesTimeseries) {
   const wrapperRef = React.useRef<HTMLDivElement>(null);
-  const { body } = model.useState();
-  body.useState();
-  // the panel title is only rendered once the panel plugin has loaded
-  const isPluginLoaded = Boolean(body.getPlugin());
 
   React.useEffect(() => {
     const wrapper = wrapperRef.current;
-    const title = wrapper?.querySelector('h2');
-    if (!wrapper || !title || typeof ResizeObserver === 'undefined') {
+    if (!wrapper || typeof ResizeObserver === 'undefined' || typeof MutationObserver === 'undefined') {
       return;
     }
 
-    // observing the title too: it shrinks when the header actions grow, without the panel being resized
-    const observer = new ResizeObserver(() => {
-      model.onHeaderResize({ width: wrapper.clientWidth, isTitleClipped: title.scrollWidth > title.clientWidth });
-    });
-    observer.observe(wrapper);
-    observer.observe(title);
+    let title: HTMLElement | null = null;
 
-    return () => observer.disconnect();
-  }, [model, body, isPluginLoaded]);
+    // observing the title too: it shrinks when the header actions grow, without the panel being resized
+    const resizeObserver = new ResizeObserver(() => {
+      if (title) {
+        model.onHeaderResize({ width: wrapper.clientWidth, isTitleClipped: title.scrollWidth > title.clientWidth });
+      }
+    });
+
+    const observeTitle = () => {
+      const currentTitle = wrapper.querySelector('h2');
+      if (currentTitle && currentTitle !== title) {
+        if (title) {
+          resizeObserver.unobserve(title);
+        }
+        title = currentTitle;
+        resizeObserver.observe(title);
+      }
+    };
+
+    // the panel chrome (and its title) is only rendered after the panel has been measured and its plugin loaded
+    const mutationObserver = new MutationObserver(observeTitle);
+    mutationObserver.observe(wrapper, { childList: true, subtree: true });
+
+    resizeObserver.observe(wrapper);
+    observeTitle();
+
+    return () => {
+      mutationObserver.disconnect();
+      resizeObserver.disconnect();
+    };
+  }, [model]);
 
   return wrapperRef;
 }
