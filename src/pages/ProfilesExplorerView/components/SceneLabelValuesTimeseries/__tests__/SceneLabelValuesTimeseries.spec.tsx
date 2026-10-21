@@ -30,10 +30,11 @@ const allServicesHeaderActions = (item: GridItemData) => [
   new FavAction({ item }),
 ];
 
-function renderSelectActions(label: string) {
+function renderSelectActions(label: string, compactActionsForLongTitle = true) {
   const timeseries = new SceneLabelValuesTimeseries({
     item: buildItem(label),
     headerActions: allServicesHeaderActions,
+    compactActionsForLongTitle,
   });
 
   const selectActions = (timeseries.state.body.state.headerActions as SceneObject[]).filter(
@@ -65,6 +66,16 @@ describe('SceneLabelValuesTimeseries', () => {
       'renders the "%s" action with its text label when the panel title is short',
       (actionName) => {
         renderSelectActions('ride-sharing-app');
+
+        const button = screen.getByRole('button', { name: actionName });
+        expect(button).toHaveTextContent(actionName);
+      }
+    );
+
+    it.each(['Profile types', 'Labels', 'Flame graph'])(
+      'renders the "%s" action with its text label when the panel does not opt in to compact actions',
+      (actionName) => {
+        renderSelectActions('ridesharing-production/checkout-api', false);
 
         const button = screen.getByRole('button', { name: actionName });
         expect(button).toHaveTextContent(actionName);
