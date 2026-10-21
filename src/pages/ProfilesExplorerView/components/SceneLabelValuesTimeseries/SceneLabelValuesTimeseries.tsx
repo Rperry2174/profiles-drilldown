@@ -466,7 +466,6 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
   fitHeaderActionsToTitle(container: HTMLElement) {
     const { compactHeaderActions, body } = this.state;
     const width = container.clientWidth;
-
     if (compactHeaderActions) {
       if (width > compactHeaderActions.width || body.state.title !== compactHeaderActions.title) {
         this.setState({ compactHeaderActions: undefined });
@@ -530,11 +529,21 @@ function SceneLabelValuesTimeseriesComponent({ model }: SceneComponentProps<Scen
       return;
     }
 
-    const observer = new ResizeObserver(() => model.fitHeaderActionsToTitle(container));
-    observer.observe(container);
-    model.fitHeaderActionsToTitle(container);
+    const fit = () => model.fitHeaderActionsToTitle(container);
 
-    return () => observer.disconnect();
+    const resizeObserver = new ResizeObserver(fit);
+    resizeObserver.observe(container);
+
+    // the panel header is rendered after this component mounts (plugin loading, panel sizing)
+    const mutationObserver = new MutationObserver(fit);
+    mutationObserver.observe(container, { childList: true, subtree: true });
+
+    fit();
+
+    return () => {
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+    };
   }, [model, title, compactHeaderActions]);
 
   return (
