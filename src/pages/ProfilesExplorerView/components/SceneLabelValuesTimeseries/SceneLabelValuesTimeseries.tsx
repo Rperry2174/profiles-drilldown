@@ -36,8 +36,8 @@ import { buildTimeSeriesQueryRunner } from '../../infrastructure/timeseries/buil
 import { addRefId, addStats } from '../SceneByVariableRepeaterGrid/infrastructure/data-transformations';
 import {
   addExemplarTransformations,
-  HIGHLIGHTED_SERIES_REF_ID,
   getHighlightedSeriesOverrides,
+  HIGHLIGHTED_SERIES_REF_ID,
 } from '../SceneByVariableRepeaterGrid/infrastructure/exemplars-transformations';
 import { GridItemData } from '../SceneByVariableRepeaterGrid/types/GridItemData';
 import { RangeAnnotation } from '../SceneExploreDiffFlameGraph/components/SceneComparePanel/domain/RangeAnnotation';
@@ -51,6 +51,7 @@ interface SceneLabelValuesTimeseriesState extends SceneObjectState {
   displayAllValues: boolean;
   legendPlacement: VizLegendOptions['placement'];
   overrides?: (series: DataFrame[]) => VizPanelState['fieldConfig']['overrides'];
+  compactHeaderActions?: boolean;
 }
 
 const styles = {
@@ -68,6 +69,8 @@ const styles = {
 };
 
 export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValuesTimeseriesState> {
+  private compactedAtWidth = 0;
+
   constructor({
     item,
     headerActions,
@@ -433,13 +436,17 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
       delete updatedItem.queryRunnerParams.filters;
     }
 
-    this.setState({ item: updatedItem });
+    const compactHeaderActions = updatedItem.label === item.label && this.state.compactHeaderActions;
+
+    this.setState({ item: updatedItem, compactHeaderActions });
 
     body.setState({
       title: partialItem.label,
       description: this.buildDescription(updatedItem.queryRunnerParams.groupBy),
       headerActions: headerActions(updatedItem),
     });
+
+    this.getCompactableHeaderActions().forEach((action) => action.setCompact(Boolean(compactHeaderActions)));
 
     if (!isEqual(item.queryRunnerParams, updatedItem.queryRunnerParams)) {
       const { queries } = buildTimeSeriesQueryRunner(
@@ -452,6 +459,37 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
       // this allows us not to have to subscribe to the data provider changes as we do in onActivate() above
       queryRunner?.setState({ queries });
       queryRunner?.runQueries();
+    }
+  }
+
+  private getCompactableHeaderActions(): SelectAction[] {
+    const { headerActions } = this.state.body.state;
+    const actions = Array.isArray(headerActions) ? headerActions : [headerActions];
+
+    return actions.filter((action): action is SelectAction => action instanceof SelectAction && action.canBeCompact());
+  }
+
+  private setCompactHeaderActions(compact: boolean) {
+    this.setState({ compactHeaderActions: compact });
+    this.getCompactableHeaderActions().forEach((action) => action.setCompact(compact));
+  }
+
+  /**
+   * Long titles (e.g. namespaced service names) get clipped by the labelled header actions, so we switch
+   * these actions to icons. We only expand them again once the panel gets wider than when we collapsed them,
+   * otherwise the freed space would immediately flip them back and forth.
+   */
+  onHeaderResize({ width, isTitleClipped }: { width: number; isTitleClipped: boolean }) {
+    if (!this.state.compactHeaderActions) {
+      if (isTitleClipped && this.getCompactableHeaderActions().length > 0) {
+        this.compactedAtWidth = width;
+        this.setCompactHeaderActions(true);
+      }
+      return;
+    }
+
+    if (width > this.compactedAtWidth) {
+      this.setCompactHeaderActions(false);
     }
   }
 
@@ -478,12 +516,58 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
 function SceneLabelValuesTimeseriesComponent({ model }: SceneComponentProps<SceneLabelValuesTimeseries>) {
   const { body } = model.useState();
   const hasSelectedExemplar = useHasSelectedExemplar(model);
+  const wrapperRef = useCompactHeaderActions(model);
 
   return (
-    <div className={cx(styles.wrapper, hasSelectedExemplar && styles.highlightedExemplar)}>
+    <div ref={wrapperRef} className={cx(styles.wrapper, hasSelectedExemplar && styles.highlightedExemplar)}>
       <body.Component model={body} />
     </div>
   );
+}
+
+function useCompactHeaderActions(model: SceneLabelValuesTimeseries) {
+  const wrapperRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper || typeof ResizeObserver === 'undefined' || typeof MutationObserver === 'undefined') {
+      return;
+    }
+
+    let title: HTMLElement | null = null;
+
+    // observing the title too: it shrinks when the header actions grow, without the panel being resized
+    const resizeObserver = new ResizeObserver(() => {
+      if (title) {
+        model.onHeaderResize({ width: wrapper.clientWidth, isTitleClipped: title.scrollWidth > title.clientWidth });
+      }
+    });
+
+    const observeTitle = () => {
+      const currentTitle = wrapper.querySelector('h2');
+      if (currentTitle && currentTitle !== title) {
+        if (title) {
+          resizeObserver.unobserve(title);
+        }
+        title = currentTitle;
+        resizeObserver.observe(title);
+      }
+    };
+
+    // the panel chrome (and its title) is only rendered after the panel has been measured and its plugin loaded
+    const mutationObserver = new MutationObserver(observeTitle);
+    mutationObserver.observe(wrapper, { childList: true, subtree: true });
+
+    resizeObserver.observe(wrapper);
+    observeTitle();
+
+    return () => {
+      mutationObserver.disconnect();
+      resizeObserver.disconnect();
+    };
+  }, [model]);
+
+  return wrapperRef;
 }
 
 function useHasSelectedExemplar(model: SceneObject): boolean {
