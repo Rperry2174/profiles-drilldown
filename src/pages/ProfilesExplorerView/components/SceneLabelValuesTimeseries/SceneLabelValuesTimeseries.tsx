@@ -36,8 +36,8 @@ import { buildTimeSeriesQueryRunner } from '../../infrastructure/timeseries/buil
 import { addRefId, addStats } from '../SceneByVariableRepeaterGrid/infrastructure/data-transformations';
 import {
   addExemplarTransformations,
-  HIGHLIGHTED_SERIES_REF_ID,
   getHighlightedSeriesOverrides,
+  HIGHLIGHTED_SERIES_REF_ID,
 } from '../SceneByVariableRepeaterGrid/infrastructure/exemplars-transformations';
 import { GridItemData } from '../SceneByVariableRepeaterGrid/types/GridItemData';
 import { RangeAnnotation } from '../SceneExploreDiffFlameGraph/components/SceneComparePanel/domain/RangeAnnotation';
@@ -50,6 +50,7 @@ interface SceneLabelValuesTimeseriesState extends SceneObjectState {
   body: VizPanel;
   displayAllValues: boolean;
   legendPlacement: VizLegendOptions['placement'];
+  compactActionsForLongTitle: boolean;
   overrides?: (series: DataFrame[]) => VizPanelState['fieldConfig']['overrides'];
 }
 
@@ -73,6 +74,7 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
     headerActions,
     displayAllValues,
     legendPlacement,
+    compactActionsForLongTitle,
     data,
     overrides,
     includeExemplars,
@@ -84,6 +86,7 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
     headerActions: SceneLabelValuesTimeseriesState['headerActions'];
     displayAllValues?: SceneLabelValuesTimeseriesState['displayAllValues'];
     legendPlacement?: SceneLabelValuesTimeseriesState['legendPlacement'];
+    compactActionsForLongTitle?: SceneLabelValuesTimeseriesState['compactActionsForLongTitle'];
     data?: SceneDataTransformer;
     overrides?: SceneLabelValuesTimeseriesState['overrides'];
     includeExemplars?: boolean;
@@ -105,6 +108,7 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
       headerActions: processedHeaderActions,
       displayAllValues: Boolean(displayAllValues),
       legendPlacement: legendPlacement || 'bottom',
+      compactActionsForLongTitle: Boolean(compactActionsForLongTitle),
       overrides,
       body: PanelBuilders.timeseries()
         // TODO: remove `as any` once @grafana/scenes exposes `multiLane` on the annotations option type
@@ -121,7 +125,13 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
               transformations: [],
             })
         )
-        .setHeaderActions(processedHeaderActions(item))
+        .setHeaderActions(
+          SceneLabelValuesTimeseries.compactSelectActionsForLongTitle(
+            processedHeaderActions(item),
+            item,
+            Boolean(compactActionsForLongTitle)
+          )
+        )
         .setMenu(new SceneTimeseriesMenu(menuState) as unknown as VizPanelMenu)
         .build(),
     });
@@ -130,6 +140,29 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
       this.addTransformations(item);
     }
     this.addActivationHandler(this.onActivate.bind(this));
+  }
+
+  // Beyond this length, a title next to the text select actions ("Profile types", "Labels", "Flame graph")
+  // gets ellipsized in the default 3-column grid at 1440 px, so the actions are rendered as icons instead.
+  // Only callers that place the panel in such a grid opt in: full-width panels have room for the text.
+  static MAX_TITLE_LENGTH_WITH_TEXT_ACTIONS = 24;
+
+  private static compactSelectActionsForLongTitle(
+    headerActions: VizPanelState['headerActions'],
+    item: GridItemData,
+    compactActionsForLongTitle: boolean
+  ): VizPanelState['headerActions'] {
+    if (
+      compactActionsForLongTitle &&
+      Array.isArray(headerActions) &&
+      item.label.length > SceneLabelValuesTimeseries.MAX_TITLE_LENGTH_WITH_TEXT_ACTIONS
+    ) {
+      headerActions
+        .filter((action): action is SelectAction => action instanceof SelectAction)
+        .forEach((action) => action.setState({ compact: true }));
+    }
+
+    return headerActions;
   }
 
   private static processExemplarsConfig(
@@ -414,7 +447,7 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
   }
 
   updateItem(partialItem: Partial<GridItemData>) {
-    const { item, headerActions, body } = this.state;
+    const { item, headerActions, body, compactActionsForLongTitle } = this.state;
     const updatedItem = merge({}, item, partialItem);
 
     if (partialItem.queryRunnerParams?.hasOwnProperty('groupBy')) {
@@ -438,7 +471,11 @@ export class SceneLabelValuesTimeseries extends SceneObjectBase<SceneLabelValues
     body.setState({
       title: partialItem.label,
       description: this.buildDescription(updatedItem.queryRunnerParams.groupBy),
-      headerActions: headerActions(updatedItem),
+      headerActions: SceneLabelValuesTimeseries.compactSelectActionsForLongTitle(
+        headerActions(updatedItem),
+        updatedItem,
+        compactActionsForLongTitle
+      ),
     });
 
     if (!isEqual(item.queryRunnerParams, updatedItem.queryRunnerParams)) {

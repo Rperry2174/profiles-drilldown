@@ -275,6 +275,7 @@ export class SceneByVariableRepeaterGrid extends SceneObjectBase<SceneByVariable
     const vizPanel = vizPanelBuilder(item.panelType, {
       item,
       headerActions: this.state.headerActions.bind(null, item, this.state.items),
+      compactActionsForLongTitle: true,
     });
 
     if (this.state.hideNoData) {
