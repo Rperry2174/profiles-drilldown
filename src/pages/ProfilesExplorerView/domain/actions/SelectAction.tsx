@@ -19,6 +19,7 @@ type ActionType = 'expand-panel' | 'select-label' | 'view-flame-graph' | 'view-l
 
 type EventLookup = {
   icon?: IconName;
+  compactIcon?: IconName;
   label?: string;
   ariaLabel?: string;
   tooltip: (item: GridItemData, model: SceneObject) => string;
@@ -52,6 +53,7 @@ const Events = new Map<ActionType, EventLookup>([
     'view-flame-graph',
     Object.freeze({
       label: 'Flame graph',
+      compactIcon: 'fire',
       tooltip: ({ queryRunnerParams }, model) => {
         const serviceName = queryRunnerParams.serviceName || getSceneVariableValue(model, 'serviceName');
         const profileMetricId = queryRunnerParams.profileMetricId || getSceneVariableValue(model, 'profileMetricId');
@@ -64,6 +66,7 @@ const Events = new Map<ActionType, EventLookup>([
     'view-labels',
     Object.freeze({
       label: 'Labels',
+      compactIcon: 'tag-alt',
       tooltip: ({ queryRunnerParams }, model) => {
         const serviceName = queryRunnerParams.serviceName || getSceneVariableValue(model, 'serviceName');
         return `Explore the labels of ${serviceName}`;
@@ -75,6 +78,7 @@ const Events = new Map<ActionType, EventLookup>([
     'view-profiles',
     Object.freeze({
       label: 'Profile types',
+      compactIcon: 'gf-grid',
       tooltip: ({ queryRunnerParams }, model) => {
         const serviceName = queryRunnerParams.serviceName || getSceneVariableValue(model, 'serviceName');
         return `View the profile types of ${serviceName}`;
@@ -91,8 +95,10 @@ interface SelectActionState extends SceneObjectState {
   label?: string;
   ariaLabel?: string;
   icon?: IconName;
+  compactIcon?: IconName;
   tooltip?: EventLookup['tooltip'];
   skipVariablesInterpolation?: boolean;
+  compact?: boolean;
 }
 
 export class SelectAction extends SceneObjectBase<SelectActionState> {
@@ -101,18 +107,21 @@ export class SelectAction extends SceneObjectBase<SelectActionState> {
     item,
     tooltip,
     skipVariablesInterpolation,
+    compact,
   }: {
     type: ActionType;
     item: SelectActionState['item'];
     tooltip?: SelectActionState['tooltip'];
     skipVariablesInterpolation?: SelectActionState['skipVariablesInterpolation'];
+    // icon-only rendering, to leave the panel title room for long service names
+    compact?: SelectActionState['compact'];
   }) {
     const lookup = Events.get(type);
     if (!lookup) {
       throw new TypeError(`Unknown event type="${type}"!`);
     }
 
-    super({ type, item, ...merge({}, lookup, { tooltip, skipVariablesInterpolation }) });
+    super({ type, item, ...merge({}, lookup, { tooltip, skipVariablesInterpolation, compact }) });
   }
 
   public onClick = () => {
@@ -138,7 +147,8 @@ export class SelectAction extends SceneObjectBase<SelectActionState> {
 
   public static Component = ({ model }: SceneComponentProps<SelectAction>) => {
     const styles = useStyles2(getStyles);
-    const { ariaLabel, label, icon, tooltip, item } = model.useState();
+    const { ariaLabel, label, icon, compactIcon, compact, tooltip, item } = model.useState();
+    const iconOnly = Boolean(compact && compactIcon);
 
     return (
       <Button
@@ -148,11 +158,11 @@ export class SelectAction extends SceneObjectBase<SelectActionState> {
         size="sm"
         fill="text"
         onClick={model.onClick}
-        icon={icon}
+        icon={iconOnly ? compactIcon : icon}
         tooltip={tooltip?.(item, model)}
         tooltipPlacement="top"
       >
-        {label}
+        {iconOnly ? null : label}
       </Button>
     );
   };

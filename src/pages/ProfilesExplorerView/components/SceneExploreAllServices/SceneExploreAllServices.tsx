@@ -46,12 +46,16 @@ export class SceneExploreAllServices extends SceneObjectBase<SceneExploreAllServ
           },
           panelType: PanelType.TIMESERIES,
         }),
-        headerActions: (item) => [
-          new SelectAction({ type: 'view-profiles', item }),
-          new SelectAction({ type: 'view-labels', item }),
-          new SelectAction({ type: 'view-flame-graph', item }),
-          new FavAction({ item }),
-        ],
+        headerActions: (item) => {
+          // namespaced names ("namespace/service") are long and get ellipsized behind the text actions
+          const compact = item.label.includes('/');
+          return [
+            new SelectAction({ type: 'view-profiles', item, compact }),
+            new SelectAction({ type: 'view-labels', item, compact }),
+            new SelectAction({ type: 'view-flame-graph', item, compact }),
+            new FavAction({ item }),
+          ];
+        },
       }),
     });
 
